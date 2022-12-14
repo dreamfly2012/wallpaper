@@ -20,13 +20,19 @@ import (
 
 	"regexp"
 
-	"strings"
-
 	"syscall"
 
 	"time"
 
 	"unsafe"
+
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/layout"
+	"fyne.io/fyne/v2/theme"
+	"fyne.io/fyne/v2/widget"
 )
 
 const (
@@ -100,7 +106,7 @@ type Info struct {
 }
 
 type Data struct {
-	Infos []Info `json:"infos"`
+	Data []Info `json:"data"`
 }
 
 // ImageSize 图片大小
@@ -183,7 +189,7 @@ func GetBingBackgroundImageURL() (result string, err error) {
 		panic(err)
 	}
 
-	return data.Infos[0].Path, nil
+	return data.Data[0].Path, nil
 
 }
 
@@ -255,47 +261,81 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 func main() {
 
-	fmt.Println("获取必应背景图中...")
+	var data = []string{"a", "string", "list"}
 
-	imageURL, err := GetBingBackgroundImageURL()
+	myApp := app.New()
+	myWindow := myApp.NewWindow("List Layout")
 
-	if err != nil {
+	image := canvas.NewImageFromResource(theme.FyneLogo())
+	// image := canvas.NewImageFromURI(uri)
+	// image := canvas.NewImageFromImage(src)
+	// image := canvas.NewImageFromReader(reader, name)
+	// image := canvas.NewImageFromFile(fileName)
+	image.FillMode = canvas.ImageFillOriginal
+	//image.SetMinSize()
+	//image.Size().Width = 222
 
-		fmt.Println("获取背景图片链接失败: " + err.Error())
+	list := widget.NewList(
+		func() int {
+			return len(data)
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("test")
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			o.(*widget.Label).SetText(data[i])
+		})
 
-		return
+	grid := container.New(layout.NewHBoxLayout(), list)
 
-	}
+	myWindow.SetContent(container.New(layout.NewVBoxLayout(), grid, image, image))
 
-	fmt.Println("获取成功: " + imageURL)
+	//myWindow.SetContent(grid)
 
-	fmt.Println("下载图片...")
+	myWindow.Resize(fyne.NewSize(180, 75))
+	myWindow.ShowAndRun()
 
-	imagePath, err := DownloadImage(imageURL, &ImageSize{
+	// fmt.Println("获取必应背景图中...")
 
-		w: strings.Split(Size4k, ",")[0],
+	// imageURL, err := GetBingBackgroundImageURL()
 
-		h: strings.Split(Size4k, ",")[1],
-	})
+	// if err != nil {
 
-	if err != nil {
+	// 	fmt.Println("获取背景图片链接失败: " + err.Error())
 
-		fmt.Println("下载图片失败: " + err.Error())
+	// 	return
 
-		return
+	// }
 
-	}
+	// fmt.Println("获取成功: " + imageURL)
 
-	fmt.Println("设置桌面...")
+	// fmt.Println("下载图片...")
 
-	err = SetWindowsWallpaper(imagePath)
+	// imagePath, err := DownloadImage(imageURL, &ImageSize{
 
-	if err != nil {
+	// 	w: strings.Split(Size4k, ",")[0],
 
-		fmt.Println("设置桌面背景失败: " + err.Error())
+	// 	h: strings.Split(Size4k, ",")[1],
+	// })
 
-		return
+	// if err != nil {
 
-	}
+	// 	fmt.Println("下载图片失败: " + err.Error())
+
+	// 	return
+
+	// }
+
+	// fmt.Println("设置桌面...")
+
+	// err = SetWindowsWallpaper(imagePath)
+
+	// if err != nil {
+
+	// 	fmt.Println("设置桌面背景失败: " + err.Error())
+
+	// 	return
+
+	// }
 
 }
