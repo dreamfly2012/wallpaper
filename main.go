@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/md5"
+	"log"
+	"strings"
 
 	"encoding/hex"
 	"encoding/json"
@@ -32,13 +34,12 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
-	"fyne.io/fyne/v2/widget"
 )
 
 const (
 	UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.75 Safari/537.36"
 
-	BingHomeURL = "https://wallhaven.cc/api/v1/search?sorting=toplist"
+	ApiURL = "https://wallhaven.cc/api/v1/search?ratios=16x10&page=12&q=landscape"
 
 	CurrentPathDir = "cache/"
 )
@@ -50,35 +51,6 @@ const (
 
 	Size4k string = "3840,2160"
 )
-
-// id": "gp8pdq",
-// "url": "https://wallhaven.cc/w/gp8pdq",
-// "short_url": "https://whvn.cc/gp8pdq",
-// "views": 71682,
-// "favorites": 1459,
-// "source": "https://www.artstation.com/artwork/Omr2kJ",
-// "purity": "sfw",
-// "category": "anime",
-// "dimension_x": 5760,
-// "dimension_y": 2880,
-// "resolution": "5760x2880",
-// "ratio": "2",
-// "file_size": 1878740,
-// "file_type": "image/jpeg",
-// "created_at": "2022-11-15 00:35:19",
-// "colors": [
-// "#424153",
-// "#999999",
-// "#000000",
-// "#996633",
-// "#333399"
-// ],
-// "path": "https://w.wallhaven.cc/full/gp/wallhaven-gp8pdq.jpg",
-// "thumbs": {
-// "large": "https://th.wallhaven.cc/lg/gp/gp8pdq.jpg",
-// "original": "https://th.wallhaven.cc/orig/gp/gp8pdq.jpg",
-// "small": "https://th.wallhaven.cc/small/gp/gp8pdq.jpg"
-// }
 
 type Info struct {
 	ID         string   `json:"id"`
@@ -156,14 +128,11 @@ func SetWindowsWallpaper(imagePath string) error {
 
 }
 
-// GetBingBackgroundImageURL 获取bing主页的背景图片链接
-//result map[string]interface{}
-
-func GetBingBackgroundImageURL() (result string, err error) {
+func GetImageList() (info []Info) {
 
 	client := http.Client{}
 
-	request, err := http.NewRequest("GET", BingHomeURL, nil)
+	request, err := http.NewRequest("GET", ApiURL, nil)
 
 	if err != nil {
 
@@ -189,13 +158,13 @@ func GetBingBackgroundImageURL() (result string, err error) {
 		panic(err)
 	}
 
-	return data.Data[0].Path, nil
+	return data.Data
 
 }
 
 // DownloadImage 下载图片,保存并返回保存的文件名的绝对路径
 
-func DownloadImage(imageURL string, size *ImageSize) (string, error) {
+func DownloadImage(imageURL string, size *ImageSize, result chan<- string) {
 
 	wRegexp := regexp.MustCompile("w=\\d+")
 
@@ -213,7 +182,7 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 	if err != nil {
 
-		return "", err
+		log.Println(err)
 
 	}
 
@@ -221,7 +190,7 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 	if err != nil {
 
-		return "", err
+		log.Println(err)
 
 	}
 
@@ -229,7 +198,7 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 	if err != nil {
 
-		return "", err
+		log.Println(err)
 
 	}
 
@@ -243,7 +212,7 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 	if err != nil {
 
-		return "", err
+		log.Println(err)
 
 	}
 
@@ -251,91 +220,74 @@ func DownloadImage(imageURL string, size *ImageSize) (string, error) {
 
 	if err != nil {
 
-		return "", err
+		log.Println(err)
 
 	}
 
-	return absPath, nil
+	result <- absPath
 
 }
 
-func main() {
-
-	var data = []string{"a", "string", "list"}
+func draw(infoList []Info) {
+	imageList := []fyne.CanvasObject{}
 
 	myApp := app.New()
-	myWindow := myApp.NewWindow("List Layout")
+	myWindow := myApp.NewWindow("桌面背景修改器")
 
-	image := canvas.NewImageFromResource(theme.FyneLogo())
-	// image := canvas.NewImageFromURI(uri)
-	// image := canvas.NewImageFromImage(src)
-	// image := canvas.NewImageFromReader(reader, name)
-	// image := canvas.NewImageFromFile(fileName)
-	image.FillMode = canvas.ImageFillOriginal
-	//image.SetMinSize()
-	//image.Size().Width = 222
+	ch := make(chan string, 12)
 
-	list := widget.NewList(
-		func() int {
-			return len(data)
-		},
-		func() fyne.CanvasObject {
-			return widget.NewLabel("test")
-		},
-		func(i widget.ListItemID, o fyne.CanvasObject) {
-			o.(*widget.Label).SetText(data[i])
-		})
+	for i := 0; i < 12; i++ {
+		//todo download and assign image
+		go DownloadImage(infoList[i].Path, &ImageSize{
 
-	grid := container.New(layout.NewHBoxLayout(), list)
+			w: strings.Split(Size4k, ",")[0],
 
-	myWindow.SetContent(container.New(layout.NewVBoxLayout(), grid, image, image))
+			h: strings.Split(Size4k, ",")[1],
+		}, ch)
+	}
 
-	//myWindow.SetContent(grid)
+	for i := 0; i < 12; i++ {
+		path := <-ch
+		image := canvas.NewImageFromFile(path)
+		image.FillMode = canvas.ImageFillOriginal
 
-	myWindow.Resize(fyne.NewSize(180, 75))
+		clickImage := NewClickImage()
+		clickImage.Image = image
+		clickImage.OnTapped = func() {
+			setDeskBackgroud(path)
+			println("clicked", path)
+		}
+
+		imageList = append(imageList, clickImage)
+	}
+
+	content1 := container.New(layout.NewGridLayout(4), imageList...)
+
+	myWindow.SetContent(content1)
+
+	myWindow.Resize(fyne.NewSize(800, 400))
+
+	myWindow.SetIcon(theme.FyneLogo())
+
 	myWindow.ShowAndRun()
+}
 
-	// fmt.Println("获取必应背景图中...")
+func setDeskBackgroud(imagePath string) {
 
-	// imageURL, err := GetBingBackgroundImageURL()
+	err := SetWindowsWallpaper(imagePath)
 
-	// if err != nil {
+	if err != nil {
 
-	// 	fmt.Println("获取背景图片链接失败: " + err.Error())
+		fmt.Println("设置桌面背景失败: " + err.Error())
 
-	// 	return
+		return
 
-	// }
+	}
+}
 
-	// fmt.Println("获取成功: " + imageURL)
+func main() {
+	imageList := GetImageList()
 
-	// fmt.Println("下载图片...")
-
-	// imagePath, err := DownloadImage(imageURL, &ImageSize{
-
-	// 	w: strings.Split(Size4k, ",")[0],
-
-	// 	h: strings.Split(Size4k, ",")[1],
-	// })
-
-	// if err != nil {
-
-	// 	fmt.Println("下载图片失败: " + err.Error())
-
-	// 	return
-
-	// }
-
-	// fmt.Println("设置桌面...")
-
-	// err = SetWindowsWallpaper(imagePath)
-
-	// if err != nil {
-
-	// 	fmt.Println("设置桌面背景失败: " + err.Error())
-
-	// 	return
-
-	// }
+	draw(imageList)
 
 }
